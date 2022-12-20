@@ -407,12 +407,15 @@ public class SSLSocketChannel2 implements ByteChannel, WrappedByteChannel, ISSLC
     boolean ret = status == SSLEngineResult.HandshakeStatus.FINISHED
                || status == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING;
 
-    if ( ret == false )
-    {
+    if (ret == false) {
       // 2022-06-17 If wss handshake is not completed in 10s, close this channel to prevent cpu overload or unexpected channel error. see #896.
-      if ( handshakeStartTime > 0 && ( System.currentTimeMillis() - handshakeStartTime ) > 10000 )
-      {
-        try{close() ;}catch(Exception ex){} ;
+      if (handshakeStartTime > 0 && (System.currentTimeMillis() - handshakeStartTime) > 10000) {
+        try {
+          close();
+        } catch(Exception exception){
+            exception.printStackTrace();
+        };
+        ret = true;
       }
     }
 
