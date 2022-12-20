@@ -367,6 +367,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
     if (!doSetupSelectorAndServerThread()) {
       return;
     }
+    HighCycleThrottler highCycleThrottler = new HighCycleThrottler();
     try {
       int shutdownCount = 5;
       int selectTimeout = 0;
@@ -416,6 +417,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
           // FIXME controlled shutdown (e.g. take care of buffermanagement)
           Thread.currentThread().interrupt();
         }
+        highCycleThrottler.checkHighCycleRate();
       }
     } catch (RuntimeException e) {
       // should hopefully never occur
