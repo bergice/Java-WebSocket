@@ -71,7 +71,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <tt>WebSocketServer</tt> is an abstract class that only takes care of the
+ * <code>WebSocketServer</code> is an abstract class that only takes care of the
  * HTTP handshake portion of WebSockets. It's up to a subclass to add functionality/purpose to the
  * server.
  */
@@ -183,7 +183,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
 
   /**
    * Creates a WebSocketServer that will attempt to bind/listen on the given <var>address</var>, and
-   * comply with <tt>Draft</tt> version <var>draft</var>.
+   * comply with <code>Draft</code> version <var>draft</var>.
    *
    * @param address              The address (host:port) this server should listen on.
    * @param decodercount         The number of {@link WebSocketWorker}s that will be used to process
@@ -245,7 +245,9 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
     if (selectorthread != null) {
       throw new IllegalStateException(getClass().getName() + " can only be started once.");
     }
-    new Thread(this).start();
+    Thread t = new Thread(this);
+    t.setDaemon(isDaemon());
+    t.start();
   }
 
   public void stop(int timeout) throws InterruptedException {
@@ -324,6 +326,20 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
       port = server.socket().getLocalPort();
     }
     return port;
+  }
+
+  @Override
+  public void setDaemon(boolean daemon) {
+    // pass it to the AbstractWebSocket too, to use it on the connectionLostChecker thread factory
+    super.setDaemon(daemon);
+    // we need to apply this to the decoders as well since they were created during the constructor
+    for (WebSocketWorker w : decoders) {
+      if (w.isAlive()) {
+        throw new IllegalStateException("Cannot call setDaemon after server is already started!");
+      } else {
+        w.setDaemon(daemon);
+      }
+    }
   }
 
   /**
@@ -564,7 +580,10 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
       server = ServerSocketChannel.open();
       server.configureBlocking(false);
       ServerSocket socket = server.socket();
-      socket.setReceiveBufferSize(WebSocketImpl.RCVBUF);
+      int receiveBufferSize = getReceiveBufferSize();
+      if (receiveBufferSize > 0) {
+        socket.setReceiveBufferSize(receiveBufferSize);
+      }
       socket.setReuseAddress(isReuseAddr());
       socket.bind(address, getMaxPendingConnections());
       selector = Selector.open();
@@ -641,7 +660,8 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
   }
 
   public ByteBuffer createBuffer() {
-    return ByteBuffer.allocate(WebSocketImpl.RCVBUF);
+    int receiveBufferSize = getReceiveBufferSize();
+    return ByteBuffer.allocate(receiveBufferSize > 0 ? receiveBufferSize : DEFAULT_READ_BUFFER_SIZE);
   }
 
   protected void queue(WebSocketImpl ws) throws InterruptedException {
@@ -874,7 +894,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
    * Called after an opening handshake has been performed and the given websocket is ready to be
    * written on.
    *
-   * @param conn      The <tt>WebSocket</tt> instance this event is occurring on.
+   * @param conn      The <code>WebSocket</code> instance this event is occurring on.
    * @param handshake The handshake of the websocket instance
    */
   public abstract void onOpen(WebSocket conn, ClientHandshake handshake);
@@ -882,7 +902,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
   /**
    * Called after the websocket connection has been closed.
    *
-   * @param conn   The <tt>WebSocket</tt> instance this event is occurring on.
+   * @param conn   The <code>WebSocket</code> instance this event is occurring on.
    * @param code   The codes can be looked up here: {@link CloseFrame}
    * @param reason Additional information string
    * @param remote Returns whether or not the closing of the connection was initiated by the remote
@@ -893,7 +913,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
   /**
    * Callback for string messages received from the remote host
    *
-   * @param conn    The <tt>WebSocket</tt> instance this event is occurring on.
+   * @param conn    The <code>WebSocket</code> instance this event is occurring on.
    * @param message The UTF-8 decoded message that was received.
    * @see #onMessage(WebSocket, ByteBuffer)
    **/
@@ -921,7 +941,7 @@ public abstract class WebSocketServer extends AbstractWebSocket implements Runna
   /**
    * Callback for binary messages received from the remote host
    *
-   * @param conn    The <tt>WebSocket</tt> instance this event is occurring on.
+   * @param conn    The <code>WebSocket</code> instance this event is occurring on.
    * @param message The binary message that was received.
    * @see #onMessage(WebSocket, ByteBuffer)
    **/
